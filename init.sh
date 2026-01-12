@@ -113,7 +113,6 @@ dnf -y install \
     libaio \
     libaio-devel \
     environment-modules \
-    pdsh \
     iperf3 \
     fio \
     tuned \
@@ -130,34 +129,13 @@ dnf -y install \
 ############################################
 echo "==> Configuring tuned for HPC workloads..."
 
-# Create custom tuned profile for HPC
-mkdir -p /etc/tuned/hpc-performance
-
-cat >/etc/tuned/hpc-performance/tuned.conf <<'EOF'
-[main]
-summary=Custom HPC performance profile
-include=throughput-performance
-
-[cpu]
-force_latency=1
-governor=performance
-
-[vm]
-transparent_hugepages=never
-
-[sysctl]
-vm.swappiness=10
-kernel.numa_balancing=0
-net.core.somaxconn=4096
-EOF
-
 # Enable and start tuned service
 systemctl enable --now tuned
 
 # Apply custom tuned profile
-tuned-adm profile hpc-performance
+tuned-adm profile hpc-compute
 
-echo "==> Tuned profile 'hpc-performance' applied successfully."
+echo "==> Tuned profile 'hpc-compute' applied successfully."
 
 
 
