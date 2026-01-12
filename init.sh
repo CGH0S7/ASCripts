@@ -119,6 +119,7 @@ dnf -y install \
     dstat \
     fish \
     btop \
+    mosh \
 
 # NOTE:
 # rdma-core is intentionally NOT installed.
