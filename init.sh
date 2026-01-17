@@ -108,6 +108,9 @@ dnf -y install \
     python3 \
     python3-devel \
     python3-pip \
+    python3-numpy \
+    python3-scipy \
+    python3-matplotlib \
     openssl-devel \
     libffi-devel \
     libaio \
