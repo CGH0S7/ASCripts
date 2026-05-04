@@ -85,7 +85,7 @@ dnf -y install \
     elfutils-libelf-devel \
     dkms \
     cmake \
-    ninja \
+    ninja-build \
     meson \
     git \
     git-lfs \
@@ -116,6 +116,8 @@ dnf -y install \
     libaio \
     libaio-devel \
     environment-modules \
+    netcdf-devel \
+    netcdf-fortran-devel \
     iperf3 \
     fio \
     tuned \
