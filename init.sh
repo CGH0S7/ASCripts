@@ -184,7 +184,23 @@ EOF
 systemctl restart sshd
 
 ############################################
-# 11. Cleanup
+# 11. Install Node.js, npm, and AI coding agents
+############################################
+echo "==> Installing Node.js and npm..."
+
+dnf -y install nodejs npm
+
+echo "==> Installing nrm (npm registry manager)..."
+npm install -g nrm
+
+echo "==> Switching npm registry to taobao..."
+nrm use taobao
+
+echo "==> Installing AI coding agents (claude-code, codex)..."
+npm install -g @anthropic-ai/claude-code @openai/codex
+
+############################################
+# 12. Cleanup
 ############################################
 dnf -y autoremove
 dnf clean all
