@@ -15,8 +15,9 @@ fi
 backup() {
     local outdir="${1:-.}"
     local filter_user="${2:-}"
+    local label="${filter_user:+$filter_user-}"
     local tarball
-    tarball="$(realpath "$outdir")/agent-configs-$(date +%Y%m%d-%H%M%S).tar.gz"
+    tarball="$(realpath "$outdir")/agent-configs-${label}$(date +%Y%m%d-%H%M%S).tar.gz"
     local tmpdir
     tmpdir=$(mktemp -d /tmp/agent-port-bkp-XXXXXX)
 
@@ -70,8 +71,10 @@ backup() {
 }
 
 restore() {
-    local tarball
-    tarball=$(realpath "$1")
+    local tarball="$1"
+    local target_user="${2:-}"
+
+    tarball=$(realpath "$tarball")
 
     if [[ ! -f $tarball ]]; then
         echo "ERROR: Tarball not found: $tarball"
@@ -80,6 +83,59 @@ restore() {
 
     local tmpdir
     tmpdir=$(mktemp -d /tmp/agent-port-rst-XXXXXX)
+
+    # ── Cross-user restore (-t) ─────────────────
+
+    if [[ -n $target_user ]]; then
+        # Verify single-user backup
+        local tarball_users
+        tarball_users=$(tar -tzf "$tarball" | cut -d/ -f2 | sort -u | grep -v '^\.$' | grep -v '^$')
+        local user_count
+        user_count=$(echo "$tarball_users" | wc -l)
+
+        if [[ $user_count -ne 1 ]]; then
+            echo "ERROR: -t requires a single-user backup, but tarball contains $user_count users."
+            rm -rf "$tmpdir"
+            exit 1
+        fi
+
+        if ! id "$target_user" &>/dev/null; then
+            echo "ERROR: target user '$target_user' does not exist on this system."
+            rm -rf "$tmpdir"
+            exit 1
+        fi
+
+        local target_home
+        target_home=$(eval echo "~$target_user")
+
+        if [[ ! -d $target_home ]]; then
+            echo "ERROR: home directory for '$target_user' not found ($target_home)"
+            rm -rf "$tmpdir"
+            exit 1
+        fi
+
+        echo "==> Extracting $tarball..."
+        tar -xzf "$tarball" -C "$tmpdir"
+
+        local src_user="$tarball_users"
+        local src_userdir="$tmpdir/$src_user"
+
+        echo "==> Restoring single-user backup ($src_user) to target user '$target_user'..."
+        for cfg in .claude .codex; do
+            if [[ -d "$src_userdir/$cfg" ]]; then
+                rm -rf "$target_home/$cfg"
+                cp -a "$src_userdir/$cfg" "$target_home/$cfg"
+                chown -R "$target_user:$(id -gn "$target_user")" "$target_home/$cfg"
+                echo "    $target_user: $cfg restored (from $src_user)"
+            fi
+        done
+
+        rm -rf "$tmpdir"
+        echo "==> Restore complete: 1 user(s) restored, 0 skipped"
+        return
+    fi
+
+    # ── Normal restore (match source usernames) ──
 
     echo "==> Extracting $tarball..."
     tar -xzf "$tarball" -C "$tmpdir"
@@ -123,27 +179,39 @@ restore() {
 
 usage() {
     echo "Usage:"
-    echo "  Backup all users:  $0"
-    echo "  Backup one user:   $0 -u <username>"
-    echo "  Restore:           $0 <tarball>"
+    echo "  Backup all users:   $0"
+    echo "  Backup one user:    $0 -u <username>"
+    echo "  Restore:            $0 <tarball>"
+    echo "  Restore to another: $0 -t <target_user> <tarball>"
 }
 
-target_user=""
+backup_user=""
+restore_target=""
 
-while getopts "u:" opt; do
+while getopts "u:t:" opt; do
     case $opt in
-        u) target_user="$OPTARG" ;;
+        u) backup_user="$OPTARG" ;;
+        t) restore_target="$OPTARG" ;;
         *) usage; exit 1 ;;
     esac
 done
 shift $((OPTIND - 1))
 
+if [[ -n $backup_user && -n $restore_target ]]; then
+    echo "ERROR: -u and -t cannot be used together."
+    exit 1
+fi
+
 if [[ $# -eq 0 ]]; then
-    backup "." "$target_user"
+    if [[ -n $restore_target ]]; then
+        echo "ERROR: -t requires a tarball argument."
+        exit 1
+    fi
+    backup "." "$backup_user"
 else
-    if [[ -n $target_user ]]; then
+    if [[ -n $backup_user ]]; then
         echo "ERROR: -u is only valid in backup mode, not with a tarball argument."
         exit 1
     fi
-    restore "$1"
+    restore "$1" "$restore_target"
 fi
