@@ -14,15 +14,22 @@ fi
 
 backup() {
     local outdir="${1:-.}"
+    local filter_user="${2:-}"
     local tarball
     tarball="$(realpath "$outdir")/agent-configs-$(date +%Y%m%d-%H%M%S).tar.gz"
     local tmpdir
     tmpdir=$(mktemp -d /tmp/agent-port-bkp-XXXXXX)
 
-    echo "==> Collecting .claude and .codex directories from all users..."
+    if [[ -n $filter_user ]]; then
+        echo "==> Collecting .claude and .codex directories for user '$filter_user'..."
+    else
+        echo "==> Collecting .claude and .codex directories from all users..."
+    fi
 
     local count=0
     while IFS=: read -r user _ uid _ _ homedir _; do
+        # Filter by specific user if requested
+        [[ -z $filter_user || $user == "$filter_user" ]] || continue
         # Only regular users (UID >= 1000), skip system/nobody
         [[ $uid -ge 1000 && $uid -lt 65534 ]] || continue
         [[ -d $homedir ]] || continue
@@ -114,13 +121,29 @@ restore() {
 
 # ── Main ──────────────────────────────────────
 
-if [[ $# -eq 0 ]]; then
+usage() {
     echo "Usage:"
-    echo "  Backup:  $0"
-    echo "  Restore: $0 <tarball>"
-    echo ""
-    # Default: backup to current directory
-    backup "."
+    echo "  Backup all users:  $0"
+    echo "  Backup one user:   $0 -u <username>"
+    echo "  Restore:           $0 <tarball>"
+}
+
+target_user=""
+
+while getopts "u:" opt; do
+    case $opt in
+        u) target_user="$OPTARG" ;;
+        *) usage; exit 1 ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+if [[ $# -eq 0 ]]; then
+    backup "." "$target_user"
 else
+    if [[ -n $target_user ]]; then
+        echo "ERROR: -u is only valid in backup mode, not with a tarball argument."
+        exit 1
+    fi
     restore "$1"
 fi
