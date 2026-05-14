@@ -125,6 +125,7 @@ dnf -y install \
     fish \
     btop \
     mosh \
+    ipmitool \
 
 # NOTE:
 # rdma-core is intentionally NOT installed.
