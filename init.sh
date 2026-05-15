@@ -126,6 +126,7 @@ dnf -y install \
     btop \
     mosh \
     ipmitool \
+    boost-devel \
 
 # NOTE:
 # rdma-core is intentionally NOT installed.
